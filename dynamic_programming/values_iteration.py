@@ -26,6 +26,19 @@ def mdp_value_iteration(mdp: MDP, max_iter: int = 1000, gamma=1.0) -> np.ndarray
     """
     values = np.zeros(mdp.observation_space.n)
     # BEGIN SOLUTION
+    for _ in range(max_iter):
+        new_values = np.zeros(mdp.observation_space.n)
+        for s in range(mdp.observation_space.n):
+            q_values = []
+            for a in range(mdp.action_space.n):
+                next_state, reward, _ = mdp.P[s][a]
+                q_values.append(reward + gamma * values[next_state])
+            new_values[s] = max(q_values)
+        
+        if np.allclose(values, new_values):
+            break
+        
+        values = new_values
     # END SOLUTION
     return values
 
@@ -42,7 +55,36 @@ def grid_world_value_iteration(
     """
     values = np.zeros((4, 4))
     # BEGIN SOLUTION
+    for _ in range(max_iter):
+        delta = 0
+        new_values = np.copy(values)
+        for i in range(env.height):
+            for j in range(env.width):
+                if env.grid[i, j] == 'W':  # Ignorer les murs
+                    continue
+                # Définir l'état courant
+                env.set_state(i, j)
+                q_values = []
+                for action in range(env.action_space.n):
+                    next_state, reward, is_done, _ = env.step(action, make_move=False)
+                    ni, nj = next_state
+                    if is_done:
+                        q = reward
+                    else:
+                        q = reward + gamma * values[ni][nj]
+                    q_values.append(q)
+                if q_values:
+                    new_v = max(q_values)
+                else:
+                    new_v = 0
+                
+                delta = max(delta, abs(values[i, j] - new_v))
+                new_values[i, j] = new_v
+        values = new_values
+        if delta < theta:
+            break
     # END SOLUTION
+    return values
 
 
 def value_iteration_per_state(env, values, gamma, prev_val, delta):
@@ -72,3 +114,43 @@ def stochastic_grid_world_value_iteration(
 ) -> np.ndarray:
     values = np.zeros((4, 4))
     # BEGIN SOLUTION
+    for _ in range(max_iter):
+        delta = 0
+        new_values = np.copy(values)
+        
+        for i in range(env.height):
+            for j in range(env.width):
+                if env.grid[i, j] == 'W':  # Ignorer les murs
+                    continue
+                
+                env.set_state(i, j)
+                q_values = []
+                
+                for action in range(env.action_space.n):
+                    next_states = env.get_next_states(action)
+                    expected_value = 0
+                    
+                    for next_state, reward, prob, is_done, _ in next_states:
+                        ni, nj = next_state
+                        if is_done:
+                            expected_value += prob * reward
+                        else:
+                            expected_value += prob * (reward + gamma * values[ni][nj])
+                    
+                    q_values.append(expected_value)
+                
+                if q_values:
+                    new_v = max(q_values)
+                else:
+                    new_v = 0
+                
+                delta = max(delta, abs(values[i, j] - new_v))
+                new_values[i, j] = new_v
+        
+        values = new_values
+        
+        if delta < theta:
+            break
+    
+    return values
+    # END SOLUTION
