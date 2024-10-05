@@ -55,34 +55,36 @@ def grid_world_value_iteration(
     """
     values = np.zeros((4, 4))
     # BEGIN SOLUTION
-    for _ in range(max_iter):
-        delta = 0
-        new_values = np.copy(values)
-        for i in range(env.height):
-            for j in range(env.width):
-                if env.grid[i, j] == 'W':  # Ignorer les murs
+    for iteration in range(max_iter):
+        updated_values = np.zeros((4, 4))
+        for i in range(4):
+            for j in range(4):
+                highest_value = float("-inf")
+
+                if env.grid[i, j] in ["P", "N", "W"]:
                     continue
-                # Définir l'état courant
-                env.set_state(i, j)
-                q_values = []
-                for action in range(env.action_space.n):
-                    next_state, reward, is_done, _ = env.step(action, make_move=False)
-                    ni, nj = next_state
-                    if is_done:
-                        q = reward
+
+                for act in range(env.action_space.n):
+                    env.set_state(i, j)
+
+                    nxt_state, gain, terminal, _ = env.step(act, False)
+
+                    if not terminal:
+                        result = gain + gamma * values[nxt_state[0]][nxt_state[1]]
                     else:
-                        q = reward + gamma * values[ni][nj]
-                    q_values.append(q)
-                if q_values:
-                    new_v = max(q_values)
-                else:
-                    new_v = 0
-                
-                delta = max(delta, abs(values[i, j] - new_v))
-                new_values[i, j] = new_v
-        values = new_values
-        if delta < theta:
+                        result = gain
+
+                    if result > highest_value:
+                        highest_value = result
+
+                updated_values[i][j] = highest_value
+
+        max_change = np.max(np.abs(updated_values - values))
+
+        if max_change < theta:
             break
+        values = updated_values.copy()
+
     # END SOLUTION
     return values
 
@@ -114,43 +116,20 @@ def stochastic_grid_world_value_iteration(
 ) -> np.ndarray:
     values = np.zeros((4, 4))
     # BEGIN SOLUTION
-    for _ in range(max_iter):
-        delta = 0
-        new_values = np.copy(values)
+    diff = float("inf")
+    iteration_count = 0
+
+    while iteration_count < max_iter:
+        temp_values = values.copy()
+
+        for x in range(4):
+            for y in range(4):
+                env.set_state(x, y)
+                diff = value_iteration_per_state(env, values, gamma, temp_values, diff)
         
-        for i in range(env.height):
-            for j in range(env.width):
-                if env.grid[i, j] == 'W':  # Ignorer les murs
-                    continue
-                
-                env.set_state(i, j)
-                q_values = []
-                
-                for action in range(env.action_space.n):
-                    next_states = env.get_next_states(action)
-                    expected_value = 0
-                    
-                    for next_state, reward, prob, is_done, _ in next_states:
-                        ni, nj = next_state
-                        if is_done:
-                            expected_value += prob * reward
-                        else:
-                            expected_value += prob * (reward + gamma * values[ni][nj])
-                    
-                    q_values.append(expected_value)
-                
-                if q_values:
-                    new_v = max(q_values)
-                else:
-                    new_v = 0
-                
-                delta = max(delta, abs(values[i, j] - new_v))
-                new_values[i, j] = new_v
-        
-        values = new_values
-        
-        if delta < theta:
+        if diff < theta:
             break
-    
-    return values
+        
+        iteration_count += 1
     # END SOLUTION
+    return values
